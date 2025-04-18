@@ -1,0 +1,117 @@
+// Валюта
+entity Currency {
+  name String required maxlength(50) // Например: "Доллар"
+  code String required maxlength(3) unique // Например: "USD"
+  symbol String maxlength(5) // Например: "$"
+}
+
+// Клиент
+entity Client {
+  name String required maxlength(100)
+  contactInfo String maxlength(255)
+  comment String maxlength(500)
+  active Boolean required
+}
+
+// Контрагент
+entity Counterparty {
+  name String required maxlength(100)
+  comment String maxlength(500)
+  contactInfo String maxlength(255)
+  transitCommission BigDecimal required min(0) max(100) // Комиссия на транзит (%)
+  convertCommission BigDecimal required min(0) max(100) // Комиссия на конверт (%)
+  active Boolean required
+}
+
+// Баланс контрагента
+entity CounterpartyBalance {
+  amount BigDecimal required
+}
+
+// Операция пополнения баланса
+entity BalanceOperation {
+  operationDate Instant required
+  operationType OperationType required
+  amount BigDecimal required
+}
+
+// Финансовая проводка
+entity Transaction {
+  transactionDate LocalDate required
+  creationDatetime Instant required
+  usdPurchaseRate BigDecimal // Курс покупки Доллара (Пusd)
+  additionalExpense BigDecimal // Дополнительный Расход (всегда в USD)
+  additionalIncome BigDecimal // Дополнительный Доход (всегда в USD)
+  totalProfit BigDecimal // Итоговая прибыль в USD
+}
+
+// Операция в проводке
+entity TransactionOperation {
+  operationType TransactionOperationType required
+  amount BigDecimal required
+  bankCommissionPercent BigDecimal // Комиссия Банка (%)
+  bankCommissionAmount BigDecimal // Комиссия Банка (в USD)
+  companyCommissionPercent BigDecimal // Комиссия Компании (%)
+  companyCommissionAmount BigDecimal // Комиссия Компании (в USD)
+  totalCommissionPercent BigDecimal // Общая Комиссия (%)
+  totalCommissionAmount BigDecimal // Общая Комиссия (в USD)
+  convertEnabled Boolean
+  purchaseRate BigDecimal // Курс покупки
+  sellRate BigDecimal // Курс продажи
+  resultAmount BigDecimal // Итог операции
+  exchangeRateDifference BigDecimal // Курсовая разница (в USD)
+  canceled Boolean
+}
+
+// История изменений контрагента
+entity CounterpartyHistory {
+  changeDate Instant required
+  changeDescription String maxlength(255)
+  oldTransitCommission BigDecimal
+  newTransitCommission BigDecimal
+  oldConvertCommission BigDecimal
+  newConvertCommission BigDecimal
+}
+
+// Курсы валют
+entity ExchangeRate {
+  rateDate LocalDate required
+  rateValue BigDecimal required
+}
+
+enum OperationType {
+  CASH, // Наличные
+  NON_CASH // Безналичные
+}
+
+enum TransactionOperationType {
+  TRANSIT, // Транзит
+  CONVERT, // Конверт
+  WITHDRAWAL // Выдача
+}
+
+// Отношения между сущностями
+relationship OneToMany {
+  Client{counterparty} to Counterparty{client required}
+  Counterparty{balance} to CounterpartyBalance{counterparty required}
+  Counterparty{transaction} to Transaction{counterparty required}
+  Transaction{operation} to TransactionOperation{transaction required}
+  Counterparty{balanceOperation} to BalanceOperation{counterparty required}
+  Counterparty{history} to CounterpartyHistory{counterparty required}
+  User{history} to CounterpartyHistory{user}
+}
+
+relationship ManyToOne {
+  CounterpartyBalance{currency required} to Currency
+  BalanceOperation{currency required} to Currency
+  TransactionOperation{sourceCurrency required} to Currency
+  TransactionOperation{targetCurrency} to Currency
+  ExchangeRate{sourceCurrency required} to Currency
+  ExchangeRate{targetCurrency required} to Currency
+}
+
+// Опции для UI
+dto * with mapstruct
+service * with serviceClass
+paginate Client, Counterparty, Transaction, TransactionOperation, BalanceOperation with pagination
+filter *
